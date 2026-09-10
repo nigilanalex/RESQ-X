@@ -1,0 +1,115 @@
+.hdr {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.hdr__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.hdr__mark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.hdr__tag {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hdr__units {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.hdr__unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.hdr__unit:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.hdr__unit.is-active {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: rgba(255, 122, 48, 0.08);
+}
+
+.hdr__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hdr__status {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.hdr__conn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.hdr__risk {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border: 1px solid var(--level-color);
+  border-radius: 6px;
+  padding: 4px 14px;
+  background: color-mix(in srgb, var(--level-color) 12%, transparent);
+}
+
+.hdr__risk-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+}
+
+.hdr__risk-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--level-color);
+}
+
+.hdr__risk-level {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--level-color);
+  letter-spacing: 0.06em;
+}
