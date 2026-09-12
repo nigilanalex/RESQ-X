@@ -16,3 +16,9 @@ export async function sendControl(unitId, action, params = {}) {
   }
   return res.json();
 }
+
+export async function triggerSimulationScenario(unitId, scenario) {
+  const res = await fetch(`${BACKEND_URL}/api/simulator/${unitId}/scenario`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario }) });
+  if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || `Simulation request failed (${res.status})`); }
+  return res.json();
+}

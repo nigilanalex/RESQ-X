@@ -1,80 +1,138 @@
-# RESQ-X — Control Software
+# RESQ-X — Smart Rescue Robot Command Center
 
-Software layer for your RESQ-X hardware: a backend that ingests sensor/AI data
-from the unit and scores risk, and a live dashboard for rescue teams to watch
-and steer it.
+RESQ-X is a rescue-robot control system for hazardous or inaccessible search areas. It combines an ESP32-based robot, MQTT telemetry, a Node.js backend, Socket.IO live updates, and a React command-center dashboard.
 
+The project runs in **simulation mode by default**, so the full software stack can be demonstrated without an ESP32, ESP32-CAM, Arduino IDE, or physical sensors.
+
+## Dashboard
+
+The dashboard shows four distinct live states:
+
+- **Dashboard** — Browser ↔ backend Socket.IO connection.
+- **MQTT Broker** — Backend ↔ Mosquitto connection.
+- **Unit Link** — Recent telemetry/status received from the robot or simulator.
+- **Mode** — `SIMULATION` for the software simulator or `LIVE` for physical ESP32 telemetry.
+
+In software-only mode, the expected states are:
+
+```text
+DASHBOARD     LIVE
+MQTT BROKER   ONLINE
+UNIT LINK     OK
+MODE          SIMULATION
 ```
-ESP32 unit (sensors + motors) ──MQTT──> backend (Node) ──WebSocket──> dashboard (React)
-ESP32-CAM (video) ──MJPEG (direct)────────────────────────────────────> dashboard
-[optional] ai-detector (Python/YOLO) ──MQTT (detections)──> backend
-dashboard ──REST (control commands)──> backend ──MQTT──> ESP32 unit
+
+GPS and battery intentionally show as unavailable/not measured in the simulator. No fallback GPS position or fake battery percentage is displayed.
+
+## Architecture
+
+```text
+ESP32 / Simulator → MQTT → Node.js backend → Socket.IO → React dashboard
+ESP32-CAM (optional) ───────────────────────────────────→ Dashboard camera panel
+Dashboard controls → REST API → MQTT control topic → ESP32
 ```
 
-## Why MQTT
+## Quick start — Windows
 
-Disaster zones have unreliable networks. MQTT is built for exactly that: small
-messages, automatic reconnect, and a "Last Will" so the dashboard instantly
-knows if a unit drops offline instead of silently going stale.
+### Prerequisites
 
-## Folders
+- Node.js 18 or newer
+- Mosquitto MQTT broker installed as the Windows `mosquitto` service
 
-- `backend/` — Node/Express + Socket.IO + MQTT. Ingests telemetry, computes a
-  0–100 risk score, raises alerts, exposes REST endpoints for control, and
-  pushes everything to the dashboard in real time.
-- `frontend/` — React (Vite) dashboard: live camera view with a risk-reactive
-  overlay, sensor telemetry, alert log, and a manual control panel.
-- `firmware/resqx_unit/` — Reference ESP32 sketch showing the exact MQTT
-  topics/payloads the backend expects. Wire in your real sensor pins.
-- `ai-detector/` — Optional Python worker that reads the ESP32-CAM stream and
-  runs a person detector (YOLOv8n), publishing results over MQTT so the
-  microcontroller itself never has to run AI.
+The root command checks that the Mosquitto service is running. It starts the backend, Vite frontend, and software simulator in one terminal.
 
-## Getting it running
+```powershell
+cd C:\Users\Nigilan\Downloads\resqx-full-stack\resqx
+npm.cmd install
+npm.cmd run dev
+```
 
-1. **MQTT broker.** Easiest for local testing: `mosquitto` (`brew install
-   mosquitto` / `apt install mosquitto`), or point at a public test broker
-   like `broker.hivemq.com` for a first smoke test.
+Open the dashboard at:
 
-2. **Backend**
-   ```
-   cd backend
-   cp .env.example .env   # fill in MQTT_BROKER_URL, RESQX_UNIT_IDS, etc.
-   npm install
-   npm run dev
-   ```
+```text
+http://localhost:5173
+```
 
-3. **Frontend**
-   ```
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   Open http://localhost:5173. Once your ESP32 is publishing, the unit
-   appears automatically — no manual pairing step.
+Use `npm.cmd` in PowerShell if your Windows execution policy blocks `npm.ps1`.
 
-4. **Firmware.** Open `firmware/resqx_unit/resqx_unit.ino` in Arduino IDE,
-   fill in WiFi + broker details, adjust pins to your wiring, flash it.
+Press `Ctrl + C` once in that terminal to stop the RESQ-X development stack.
 
-5. **Camera.** Flash the ESP32-CAM with the standard `CameraWebServer`
-   example sketch (ships with the ESP32 board package), note its IP, then
-   paste `http://<cam-ip>:81/stream` into "Set stream URL" in the dashboard.
+## One-command services
 
-6. **(Optional) AI detector**
-   ```
-   cd ai-detector
-   pip install opencv-python paho-mqtt ultralytics
-   python detect.py --cam-url http://<cam-ip>:81/stream --unit-id unit-01 --broker <broker-ip>
-   ```
+`npm.cmd run dev` starts:
 
-## Tuning risk scoring
+| Service | Purpose |
+| --- | --- |
+| Mosquitto check | Verifies that the local Windows MQTT service is running. |
+| Backend | Express, Socket.IO, MQTT ingestion, API, and risk engine on port `4000`. |
+| Frontend | Vite React dashboard on port `5173`. |
+| Simulator | Publishes safe, clearly marked `unit-01` test telemetry every 3 seconds. |
 
-`backend/src/riskEngine.js` combines gas/temp/vibration/person-detection into
-one score. The thresholds are reasonable defaults for MQ2 + DHT22 — recalibrate
-them against real readings from your build before field use.
+The development command uses `mqtt://localhost:1883` for software-only simulation. Your saved backend `.env` broker configuration is not overwritten.
 
-## Extending alerts
+## Build for presentation/deployment
 
-`backend/src/alertService.js` logs alerts and pushes them to the dashboard
-live. There's a commented Twilio SMS stub — wire in whatever channel your team
-actually watches (SMS, push, a control-room siren relay, etc).
+```powershell
+npm.cmd run build
+```
+
+This creates the production frontend build in `frontend/dist`.
+
+## Simulator telemetry
+
+The simulator publishes:
+
+```text
+resqx/unit-01/status
+resqx/unit-01/sensors
+```
+
+Its telemetry contains `simulated: true`, realistic temperature/humidity/motion values, and intentionally unavailable GPS/battery/PIR hardware values. Simulator controls are logged only; they never drive a physical robot.
+
+## Physical ESP32 setup
+
+The firmware is in `firmware/resqx_unit/resqx_unit.ino`.
+
+1. Copy `firmware/resqx_unit/secrets.h.example` to `firmware/resqx_unit/secrets.h`.
+2. Add your Wi-Fi and MQTT credentials to `secrets.h`.
+3. Open `resqx_unit.ino` in Arduino IDE and select the correct ESP32 board/port.
+4. Upload the sketch.
+
+The firmware maintains the existing RESQ-X MQTT topics and uses non-blocking Wi-Fi/MQTT reconnect behavior. ESP32-CAM is optional and is not required for the dashboard to run.
+
+## MQTT topics
+
+| Topic | Direction | Purpose |
+| --- | --- | --- |
+| `resqx/unit-01/status` | Unit → backend | `online` / `offline` state |
+| `resqx/unit-01/sensors` | Unit → backend | Sensor and GPS telemetry |
+| `resqx/unit-01/detection` | Unit/AI → backend | Optional person-detection result |
+| `resqx/unit-01/control` | Dashboard → unit | Movement commands |
+
+## Project folders
+
+- `frontend/` — React + Vite command-center dashboard.
+- `backend/` — Express, Socket.IO, MQTT client, API, risk engine, and simulator.
+- `firmware/resqx_unit/` — ESP32 motor, sensor, GPS, telemetry, and web-control firmware.
+- `ai-detector/` — Optional external AI detection worker.
+- `scripts/` — Windows Mosquitto availability check for the root dev command.
+
+## Camera
+
+The camera panel is intentionally independent from the main telemetry/control stack. Until an ESP32-CAM stream is available, it shows:
+
+```text
+CAMERA OFFLINE
+No stream configured
+ESP32-CAM not connected
+```
+
+When available, enter the stream URL in **Set Stream URL**, for example:
+
+```text
+http://<esp32-cam-ip>:81/stream
+```
+
+## Safety note
+
+This is a hackathon prototype. Validate motor direction, emergency stop behavior, sensor calibration, network reliability, and physical safety before deploying a robot in a real rescue environment.

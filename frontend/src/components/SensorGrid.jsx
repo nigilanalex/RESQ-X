@@ -1,46 +1,26 @@
 import "./SensorGrid.css";
 
-function fmt(value, unit, digits = 1) {
-  if (value === null || value === undefined) return "—";
-  return `${Number(value).toFixed(digits)}${unit}`;
-}
+function text(value, suffix = "", digits = 1) { return Number.isFinite(value) ? `${value.toFixed(digits)}${suffix}` : "UNAVAILABLE"; }
 
 export default function SensorGrid({ unit }) {
-  const s = unit?.sensors;
-
-  const channels = [
-    { id: "01", label: "TEMPERATURE", value: fmt(s?.temp, "°C"), danger: s?.temp > 45 },
-    { id: "02", label: "HUMIDITY", value: fmt(s?.humidity, "%"), danger: false },
-    { id: "03", label: "GAS / SMOKE", value: fmt(s?.gasPPM, " ppm", 0), danger: s?.gasPPM > 1000 },
-    {
-      id: "04",
-      label: "VIBRATION",
-      value: s?.vibration ? "DETECTED" : "STABLE",
-      danger: !!s?.vibration,
-    },
-    { id: "05", label: "MOTION (PIR)", value: s?.pir ? "MOTION" : "CLEAR", danger: !!s?.pir },
-    { id: "06", label: "BATTERY", value: fmt(s?.battery, "%", 0), danger: s?.battery < 20 },
+  const sensors = unit?.sensors || {};
+  const gps = sensors.gps || {};
+  const simEvents = sensors.simulation?.events || [];
+  const simulatedEvent = (name) => sensors.simulated && simEvents.includes(name);
+  const rows = [
+    ["01", "TEMPERATURE", text(sensors.temp, " °C"), sensors.temp > 45],
+    ["02", "HUMIDITY", text(sensors.humidity, "%"), false],
+    ["03", "FLAME SENSOR", sensors.flame ? "FLAME DETECTED" : "CLEAR", sensors.flame === true],
+    ["04", "MPU6050 MOTION", text(sensors.vibration, " g", 2), sensors.vibration > 0.35],
+    ["05", "PIR MOTION", sensors.pirAvailable ? (sensors.pir ? "MOTION" : "CLEAR") : "NOT INSTALLED", sensors.pirAvailable && sensors.pir],
+    ["06", "BATTERY", simulatedEvent("low_battery") ? "LOW (SIMULATED)" : sensors.batteryAvailable ? text(sensors.battery, "%", 0) : "NOT MEASURED", simulatedEvent("low_battery") || (sensors.batteryAvailable && sensors.battery < 20)],
   ];
-
-  return (
-    <div className="sgrid">
-      <div className="sgrid__title">TELEMETRY</div>
-      <div className="sgrid__list">
-        {channels.map((c) => (
-          <div className="sgrid__row" key={c.id}>
-            <span className="sgrid__id">SENSOR-{c.id}</span>
-            <span className="sgrid__label">{c.label}</span>
-            <span className={`sgrid__value ${c.danger ? "is-danger" : ""}`}>{c.value}</span>
-          </div>
-        ))}
-        <div className="sgrid__row">
-          <span className="sgrid__id">GPS</span>
-          <span className="sgrid__label">LAST FIX</span>
-          <span className="sgrid__value">
-            {s?.gps ? `${s.gps.lat.toFixed(4)}, ${s.gps.lng.toFixed(4)}` : "—"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  const gpsText = gps.valid && Number.isFinite(gps.lat) && Number.isFinite(gps.lng) ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : "GPS UNAVAILABLE";
+  const simulationLabel = sensors.simulated && sensors.simulation?.scenario && sensors.simulation.scenario !== "normal" ? ` · ${sensors.simulation.scenario.replaceAll("_", " ").toUpperCase()} (SIMULATED)` : "";
+  const sourceLabel = unit?.operatingMode === "SIMULATION" ? "- SIMULATED DATA" : unit?.operatingMode === "LIVE" ? "- REAL HARDWARE" : "- UNVERIFIED SOURCE";
+  return <div className="sgrid"><div className="sgrid__title">TELEMETRY {sourceLabel}</div><div className="sgrid__list">
+    {rows.map(([id, label, value, danger]) => <div className="sgrid__row" key={id}><span className="sgrid__id">SENSOR-{id}</span><span className="sgrid__label">{label}</span><span className={`sgrid__value ${danger ? "is-danger" : ""}`}>{value}</span></div>)}
+    <div className="sgrid__row"><span className="sgrid__id">GPS</span><span className="sgrid__label">LAST FIX ({gps.satellites || 0} SATS)</span><span className="sgrid__value">{gpsText}</span></div>
+    {simulationLabel && <div className="sgrid__row"><span className="sgrid__id">SIM</span><span className="sgrid__label">TEST EVENT</span><span className="sgrid__value is-danger">{simulationLabel}</span></div>}
+  </div></div>;
 }

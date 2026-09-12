@@ -1,0 +1,14 @@
+{
+  "name": "resqx",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RESQ-X development command runner",
+  "scripts": {
+    "predev": "node scripts/ensure-mosquitto.cjs",
+    "dev": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND,SIMULATOR --prefix-colors blue,magenta,green \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && npm.cmd --prefix backend run dev\" \"npm.cmd --prefix frontend run dev\" \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && npm.cmd --prefix backend run simulator\"",
+    "build": "npm.cmd --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

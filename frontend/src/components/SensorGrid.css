@@ -1,17 +1,6 @@
-.sgrid {
-  background: var(--bg-panel);
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 14px;
-}
+.sgrid { background: linear-gradient(145deg, #0b1b2d, #071524); border: 1px solid #174f87; border-radius: 10px; padding: 0 14px; }
 
-.sgrid__title {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-  letter-spacing: 0.1em;
-  margin-bottom: 10px;
-}
+.sgrid__title { min-height: 50px; display: flex; align-items: center; color: #c5e1ff; font: 700 16px var(--font-display); letter-spacing: .04em; }
 
 .sgrid__list {
   display: flex;
@@ -20,11 +9,12 @@
 
 .sgrid__row {
   display: grid;
-  grid-template-columns: 68px 1fr auto;
+  grid-template-columns: 74px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--hairline);
+  min-height: 48px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(60,106,150,.36);
 }
 
 .sgrid__row:last-child {
@@ -33,20 +23,20 @@
 
 .sgrid__id {
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
+  font-size: 11px;
+  color: #6d9bd0;
 }
 
 .sgrid__label {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 14px;
+  color: #c6daf5;
 }
 
 .sgrid__value {
   font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  color: #e4efff;
   text-align: right;
 }
 

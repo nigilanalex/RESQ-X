@@ -8,6 +8,7 @@ const units = new Map(); // unitId -> latest state
 const alerts = []; // { id, unitId, level, message, data, timestamp }
 
 const MAX_ALERTS = 500;
+const UNIT_HEARTBEAT_TIMEOUT_MS = 12000;
 
 function getOrCreateUnit(unitId) {
   if (!units.has(unitId)) {
@@ -18,6 +19,7 @@ function getOrCreateUnit(unitId) {
       sensors: null, // { temp, humidity, gasPPM, vibration, pir, gps, battery }
       detection: null, // { personDetected, confidence, count, boundingBoxes }
       risk: { score: 0, level: "LOW" },
+      operatingMode: "UNVERIFIED",
       lastCommand: null,
     });
   }
@@ -27,6 +29,7 @@ function getOrCreateUnit(unitId) {
 function updateSensors(unitId, sensors) {
   const unit = getOrCreateUnit(unitId);
   unit.sensors = sensors;
+  unit.operatingMode = sensors.source === "ESP32" ? "LIVE" : sensors.source === "SIMULATOR" ? "SIMULATION" : "UNVERIFIED";
   unit.online = true;
   unit.lastSeen = Date.now();
   return unit;
@@ -67,6 +70,17 @@ function getUnit(unitId) {
   return units.get(unitId) || null;
 }
 
+function expireStaleUnits(now = Date.now(), timeoutMs = UNIT_HEARTBEAT_TIMEOUT_MS) {
+  const expired = [];
+  for (const unit of units.values()) {
+    if (unit.online && unit.lastSeen && now - unit.lastSeen > timeoutMs) {
+      unit.online = false;
+      expired.push(unit);
+    }
+  }
+  return expired;
+}
+
 function addAlert(alert) {
   alerts.unshift(alert);
   if (alerts.length > MAX_ALERTS) alerts.length = MAX_ALERTS;
@@ -75,6 +89,10 @@ function addAlert(alert) {
 
 function getAlerts(limit = 100) {
   return alerts.slice(0, limit);
+}
+
+function clearAlerts() {
+  alerts.length = 0;
 }
 
 module.exports = {
@@ -86,6 +104,9 @@ module.exports = {
   setLastCommand,
   getAllUnits,
   getUnit,
+  expireStaleUnits,
+  UNIT_HEARTBEAT_TIMEOUT_MS,
   addAlert,
   getAlerts,
+  clearAlerts,
 };

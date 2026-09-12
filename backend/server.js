@@ -32,12 +32,21 @@ io.on("connection", (socket) => {
   socket.emit("snapshot", {
     units: store.getAllUnits(),
     alerts: store.getAlerts(50),
+    mqtt: mqttHandle.getStatus(),
   });
 
   socket.on("disconnect", () => {
     console.log("[socket] dashboard disconnected:", socket.id);
   });
 });
+
+// A unit is live only while it sends status or telemetry within the heartbeat window.
+setInterval(() => {
+  store.expireStaleUnits().forEach((unit) => {
+    console.log(`[UNIT] ${unit.unitId} heartbeat expired; marking offline`);
+    io.emit("unit:update", unit);
+  });
+}, 1000);
 
 server.listen(PORT, () => {
   console.log(`RESQ-X backend listening on http://localhost:${PORT}`);
