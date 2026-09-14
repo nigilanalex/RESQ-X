@@ -5,6 +5,7 @@ function text(value, suffix = "", digits = 1) { return Number.isFinite(value) ? 
 export default function SensorGrid({ unit }) {
   const sensors = unit?.sensors || {};
   const gps = sensors.gps || {};
+  const human = sensors.human || { available: false, status: "NOT_AVAILABLE" };
   const simEvents = sensors.simulation?.events || [];
   const simulatedEvent = (name) => sensors.simulated && simEvents.includes(name);
   const rows = [
@@ -14,6 +15,8 @@ export default function SensorGrid({ unit }) {
     ["04", "MPU6050 MOTION", text(sensors.vibration, " g", 2), sensors.vibration > 0.35],
     ["05", "PIR MOTION", sensors.pirAvailable ? (sensors.pir ? "MOTION" : "CLEAR") : "NOT INSTALLED", sensors.pirAvailable && sensors.pir],
     ["06", "BATTERY", simulatedEvent("low_battery") ? "LOW (SIMULATED)" : sensors.batteryAvailable ? text(sensors.battery, "%", 0) : "NOT MEASURED", simulatedEvent("low_battery") || (sensors.batteryAvailable && sensors.battery < 20)],
+    ["HUMAN", "HUMAN PRESENCE", !human.available ? "NOT AVAILABLE" : human.presence ? "DETECTED" : "NO HUMAN", human.presence],
+    ["LD2410", "HUMAN SENSOR", !human.available ? "NOT CONNECTED" : `${human.moving ? "MOVING" : human.stationary ? "STATIONARY" : "ONLINE"}${Number.isFinite(human.distance) ? ` · ${human.distance.toFixed(1)} m` : ""}`, human.presence],
   ];
   const gpsText = gps.valid && Number.isFinite(gps.lat) && Number.isFinite(gps.lng) ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : "GPS UNAVAILABLE";
   const simulationLabel = sensors.simulated && sensors.simulation?.scenario && sensors.simulation.scenario !== "normal" ? ` · ${sensors.simulation.scenario.replaceAll("_", " ").toUpperCase()} (SIMULATED)` : "";

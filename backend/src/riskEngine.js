@@ -12,11 +12,15 @@ function computeRisk({ sensors, detection }) {
   const flame = sensors?.flame === true ? 90 : 0;
   const temp = Number.isFinite(sensors?.temp) ? clamp(((sensors.temp - 45) / 30) * 65) : 0;
   const impact = Number.isFinite(sensors?.vibration) ? clamp(sensors.vibration * 55) : 0;
-  const person = detection?.personDetected ? 60 : 0;
+  // LD2410 telemetry is authoritative; a delayed legacy detection must not
+  // keep a cleared or unavailable presence reading active.
+  const hasHuman = sensors?.human ? sensors.human.available === true && sensors.human.presence === true : detection?.personDetected === true;
+  const person = hasHuman ? 60 : 0;
   const gas = hasSimEvent(sensors, "gas") ? 60 : 0;
   const water = hasSimEvent(sensors, "water") ? 30 : 0;
   const battery = hasSimEvent(sensors, "low_battery") ? 30 : 0;
-  const score = Math.round(clamp(flame + temp + impact + person + gas + water + battery));
+  let score = Math.round(clamp(flame + temp + impact + person + gas + water + battery));
+  if (person && (flame || temp >= 50 || impact >= 50)) score = Math.max(score, 75);
 
   return { score, level: levelForScore(score), breakdown: { flame, temp: Math.round(temp), vibration: Math.round(impact), personDetected: person, simulatedGas: gas, simulatedWater: water, simulatedLowBattery: battery } };
 }

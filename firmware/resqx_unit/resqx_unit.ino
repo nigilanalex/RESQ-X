@@ -29,6 +29,11 @@ constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
 constexpr uint8_t GPS_RX = 16;
 constexpr uint8_t GPS_TX = 17;
+// LD2410 uses UART1. GPIO18/19 are defaults only; change these constants if needed.
+constexpr uint8_t LD2410_RX_PIN = 18;
+constexpr uint8_t LD2410_TX_PIN = 19;
+constexpr uint32_t LD2410_BAUD = 256000;
+constexpr bool LD2410_ENABLED = true;
 constexpr uint8_t MPU6050_ADDRESS = 0x68;
 
 constexpr unsigned long WIFI_RETRY_MS = 10000;
@@ -50,6 +55,8 @@ PubSubClient mqtt(wifiClient);
 DHT dht(DHT_PIN, DHT22);
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(2);
+HardwareSerial ld2410Serial(1);
+bool ld2410Available = false; // Remains false until a validated LD2410 parser/frame is available.
 
 String topicSensors;
 String topicStatus;
@@ -202,6 +209,11 @@ void publishSensors() {
 
   StaticJsonDocument<512> document;
   document["source"] = "esp32";  // Required by the dashboard to verify LIVE hardware telemetry.
+  JsonObject human = document.createNestedObject("human");
+  human["presence"] = false; human["moving"] = false; human["stationary"] = false;
+  human["distance"] = nullptr; human["available"] = ld2410Available;
+  human["status"] = ld2410Available ? "NO_HUMAN" : "NOT_AVAILABLE";
+  human["sensor"] = "LD2410";
   if (isnan(temperatureC)) document["temp"] = nullptr; else document["temp"] = temperatureC;
   if (isnan(humidityPercent)) document["humidity"] = nullptr; else document["humidity"] = humidityPercent;
   document["flame"] = flameDetected();
@@ -267,10 +279,12 @@ void setup() {
   pinMode(FLAME_PIN, INPUT); stopMotors();
   dht.begin(); Wire.begin(I2C_SDA, I2C_SCL); initializeMpu6050();
   gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  if (LD2410_ENABLED) ld2410Serial.begin(LD2410_BAUD, SERIAL_8N1, LD2410_RX_PIN, LD2410_TX_PIN);
   topicSensors = "resqx/" + String(UNIT_ID) + "/sensors";
   topicStatus = "resqx/" + String(UNIT_ID) + "/status";
   topicControl = "resqx/" + String(UNIT_ID) + "/control";
   mqtt.setServer(MQTT_HOST, MQTT_PORT); mqtt.setCallback(mqttCallback); mqtt.setSocketTimeout(1);
+  mqtt.setBufferSize(1024);
   WiFi.mode(WIFI_STA); setupWebServer(); startWifiAttempt();
 }
 

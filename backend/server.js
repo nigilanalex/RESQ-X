@@ -7,6 +7,8 @@ const { Server } = require("socket.io");
 const { setupMqtt } = require("./src/mqttClient");
 const { buildApiRouter } = require("./src/routes/api");
 const store = require("./src/store");
+const { updateIntelligence } = require("./src/alertService");
+const { createHeadlightService, buildHeadlightRouter } = require("./src/headlight");
 
 const PORT = process.env.PORT || 4000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
@@ -21,6 +23,10 @@ const io = new Server(server, { cors: { origin: CORS_ORIGIN } });
 const mqttHandle = setupMqtt(io);
 
 app.use("/api", buildApiRouter(mqttHandle));
+app.use("/api", buildHeadlightRouter(createHeadlightService({
+  getUnit: store.getUnit,
+  notify: alert => { store.addAlert(alert); io.emit('alert', alert); },
+})));
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "resqx-backend", time: Date.now() });
@@ -43,6 +49,7 @@ io.on("connection", (socket) => {
 // A unit is live only while it sends status or telemetry within the heartbeat window.
 setInterval(() => {
   store.expireStaleUnits().forEach((unit) => {
+    updateIntelligence(unit);
     console.log(`[UNIT] ${unit.unitId} heartbeat expired; marking offline`);
     io.emit("unit:update", unit);
   });

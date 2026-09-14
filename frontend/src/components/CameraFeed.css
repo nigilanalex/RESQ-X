@@ -8,3 +8,28 @@
 .cam__bracket { position: absolute; z-index: 2; width: 34px; height: 34px; border: 2px solid #c3d6ef; opacity: .85; pointer-events: none; }.cam__bracket--tl { top: 12px; left: 12px; border-right: 0; border-bottom: 0; }.cam__bracket--tr { top: 12px; right: 12px; border-left: 0; border-bottom: 0; }.cam__bracket--bl { bottom: 12px; left: 12px; border-right: 0; border-top: 0; }.cam__bracket--br { right: 12px; bottom: 12px; border-left: 0; border-top: 0; }.cam__tag { position: absolute; z-index: 3; bottom: 15px; left: 50%; transform: translateX(-50%); padding: 5px 10px; color: var(--level-color); border: 1px solid var(--level-color); background: rgba(10,15,26,.88); border-radius: 3px; font: 700 11px var(--font-mono); }
 .cam__bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-top: 1px solid #17406c; }.cam__label, .cam__feed-label { color: #b3c9ea; font: 10px var(--font-mono); letter-spacing: .08em; }.cam__feed-label { color: #7197c7; }.cam__edit { border: 0; background: transparent; color: #79b9ff; cursor: pointer; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }.cam__input { flex: 1; padding: 6px 8px; border: 1px solid var(--hairline); border-radius: 4px; color: var(--text-primary); background: var(--bg-panel-raised); font: 11px var(--font-mono); }
 @media (max-width: 720px) { .cam__frame { min-height: 0; } }
+.cam__img { position: absolute; inset: 0; object-fit: contain; display: block; visibility: visible; opacity: 1; z-index: 1; }
+.cam__frame::after { z-index: 0; }
+.cam__bar { flex-wrap: wrap; }
+.cam__placeholder { background: #071321; padding: 12px; text-align: center; z-index: 2; }
+.cam__diagnostics { display: grid; gap: 4px; padding: 10px 12px; border-top: 1px solid #17406c; color: #b3c9ea; font: 10px/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.cam__diagnostics small { color: #92afd1; }
+.cam__headlight { position: absolute; top: 10px; right: 10px; z-index: 4; width: 210px; max-width: calc(100% - 20px); }
+.cam__editor { width: 100%; min-width: 0; box-sizing: border-box; border-top: 1px solid #17406c; background: #071321; }
+.cam__dialog { width: 100%; min-width: 0; box-sizing: border-box; padding: 14px; color: #c9dcf7; }
+.cam__dialog label { display: block; margin: 0 0 10px; font: 14px var(--font-ui); }
+.cam__dialog input { display: block; width: 100%; max-width: 100%; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #3b689a; border-radius: 6px; background: #061220; color: #e0efff; font: 16px var(--font-mono); }
+.cam__dialog input:focus-visible { outline: 2px solid #65bfff; outline-offset: 2px; }
+.cam__dialog small { display: block; margin: 10px 0 16px; color: #92afd1; overflow-wrap: anywhere; }
+.cam__dialog > div { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.cam__dialog button { min-height: 44px; padding: 8px 18px; border: 1px solid #287dcc; border-radius: 6px; color: #e0efff; background: #102c48; cursor: pointer; }
+.cam__dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.cam__dialog button:last-child { background: #268ff0; border-color: #4babff; color: #031322; font-weight: 700; }
+@media (max-width: 480px) { .cam__dialog { padding: 16px; }.cam__headlight { top: 6px; right: 6px; width: 190px; max-width: calc(100% - 12px); } }
+.cam__actions { position: absolute; z-index: 5; bottom: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.cam__actions button { pointer-events: auto; min-height: 44px; padding: 8px 12px; border: 1px solid #55b5ef88; border-radius: 7px; color: #e0efff; background: rgba(0,10,25,.55); backdrop-filter: blur(4px); font: 700 11px var(--font-ui); cursor: pointer; text-shadow: 0 1px 3px #000; }
+.cam__actions button:hover { background: rgba(20,70,110,.75); }.cam__actions button:disabled { opacity: .6; cursor: wait; }.cam__actions button:focus-visible { outline: 2px solid #65bfff; outline-offset: 2px; }
+.cam__feedback { position: absolute; z-index: 5; bottom: 62px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); box-sizing: border-box; padding: 7px 10px; border-radius: 5px; color: #e0efff; background: rgba(0,10,25,.8); font: 11px var(--font-mono); overflow-wrap: anywhere; pointer-events: none; }
+.cam__frame:fullscreen { width: 100vw; height: 100vh; min-height: 0; aspect-ratio: auto; background: #000; }
+.cam__frame:fullscreen::backdrop { background: #000; }
+@media (max-width: 480px) { .cam__actions { left: 6px; right: 6px; bottom: 6px; }.cam__actions button { font-size: 10px; padding: 6px 8px; } }

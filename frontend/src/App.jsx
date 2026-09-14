@@ -2,17 +2,31 @@ import { useEffect, useRef, useState } from "react";
 import { socket } from "./api/socket";
 import Header from "./components/Header.jsx";
 import CameraFeed from "./components/CameraFeed.jsx";
+import CapturedPhotos from './components/CapturedPhotos';
 import SensorGrid from "./components/SensorGrid.jsx";
 import AlertFeed from "./components/AlertFeed.jsx";
 import ControlPanel from "./components/ControlPanel.jsx";
 import SimulationControls from "./components/SimulationControls.jsx";
 import MapView from "./components/MapView.jsx";
+import RescueIntelligence from "./components/RescueIntelligence.jsx";
 import "./App.css";
+import "./components/RescueIntelligence.css";
 
 const now = () => Date.now();
 const statusNotice = (message, severity = "SYSTEM", unitId = "SYSTEM") => ({ id: `${unitId}-${message}-${now()}`, message, severity, unitId, timestamp: now() });
 
 export default function App() {
+  const [photos, setPhotos] = useState([]);
+  const photoUrls = useRef(new Set());
+  useEffect(() => () => {
+    photoUrls.current.forEach(url => URL.revokeObjectURL(url));
+    photoUrls.current.clear();
+  }, []);
+  function recordPhoto(metadata, blob) {
+    const url = URL.createObjectURL(blob);
+    photoUrls.current.add(url);
+    setPhotos(previous => [{ ...metadata, url }, ...previous]);
+  }
   const [socketConnected, setSocketConnected] = useState(socket.connected);
   const [mqttStatus, setMqttStatus] = useState({ connected: false, error: null });
   const [units, setUnits] = useState([]);
@@ -86,15 +100,16 @@ export default function App() {
 
   const sensorData = selectedUnit?.sensors || {};
 
-  return <div className="app">
+  return <div className="app app--evidence">
     <Header units={units} selectedUnitId={selectedUnitId} onSelectUnit={setSelectedUnitId} socketConnected={socketConnected} mqttStatus={mqttStatus} />
     {units.length === 0 ? <div className="app__empty">Waiting for a unit to come online. MQTT: {mqttStatus.connected ? "ONLINE" : "OFFLINE"}</div> : <>
       <main className="console-grid">
-        <section className="console-grid__camera"><CameraFeed unit={selectedUnit} streamUrl={streamUrl} onChangeStreamUrl={handleChangeStreamUrl} /></section>
+        <section className="console-grid__camera"><CameraFeed unit={selectedUnit} streamUrl={streamUrl} onChangeStreamUrl={handleChangeStreamUrl} onCaptured={recordPhoto} /></section>
         <section className="console-grid__telemetry"><SensorGrid unit={selectedUnit} /><MapView unit={selectedUnit} /></section>
         <section className="console-grid__controls"><ControlPanel unit={selectedUnit} /><SimulationControls unit={selectedUnit} /></section>
-        <section className="console-grid__notifications"><AlertFeed alerts={notifications} onClear={clearNotifications} /></section>
+        <section className="console-grid__notifications"><RescueIntelligence unit={selectedUnit} /><AlertFeed alerts={notifications} onClear={clearNotifications} /></section>
       </main>
+      <CapturedPhotos photos={photos} />
       <footer className="console-status">
         <div className="console-status__group"><h3>UNIT INFORMATION</h3><span>Unit ID <b>{selectedUnit?.unitId || "N/A"}</b></span><span>Mode <b className={isSimulation ? "is-orange" : isLiveHardware ? "is-green" : "is-red"}>{isSimulation ? "SIMULATION" : isLiveHardware ? "LIVE" : "UNVERIFIED"}</b></span><span>Source <b>{isSimulation ? "Simulated data" : isLiveHardware ? "Real hardware" : "Not verified"}</b></span><span>Status <b className={selectedUnit?.online ? "is-green" : "is-red"}>{selectedUnit?.online ? "ONLINE" : "OFFLINE"}</b></span><span>Last seen <b>{telemetryTime}</b></span></div>
         <div className="console-status__group"><h3>CONNECTIONS</h3><span><i className={socketConnected ? "is-green" : "is-red"} />Backend (Socket.IO)<b>{socketConnected ? "Connected" : "Offline"}</b></span><span><i className={mqttStatus.connected ? "is-green" : "is-red"} />MQTT Broker<b>{mqttStatus.connected ? "Connected" : "Offline"}</b></span><span><i className={selectedUnit?.online ? "is-green" : "is-red"} />Unit Link<b>{selectedUnit?.online ? "OK" : "Lost"}</b></span></div>

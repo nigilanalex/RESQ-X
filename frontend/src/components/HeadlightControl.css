@@ -1,0 +1,16 @@
+.headlight { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px; padding:12px; border:1px solid #245586; border-radius:7px; color:#c9dcf7; font:12px var(--font-mono); }
+.headlight strong, .headlight small { display:block; }.headlight small { margin-top:4px; color:#92afd1; font-size:10px; }
+.headlight output { margin-left:auto; }.headlight--on output { color:#ffdf75; }.headlight--unavailable output { color:#ffad70; }
+.headlight button { padding:8px 12px; border:1px solid #287dcc; border-radius:5px; color:#e0efff; background:#102c48; cursor:pointer; }.headlight button:disabled { opacity:.45; cursor:not-allowed; }.headlight__error { flex-basis:100%; overflow-wrap:anywhere; }
+.cam__headlight .headlight { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; padding: 9px; background: rgba(4,17,31,.88); backdrop-filter: blur(6px); box-shadow: 0 3px 12px #0005; }
+.cam__headlight .headlight > div { grid-column: 1 / -1; }
+.cam__headlight .headlight output { grid-column: 1 / -1; margin: 0; font-weight: 700; font-size: 11px; }
+.cam__headlight .headlight small { font-size: 9px; }
+.cam__headlight .headlight button { min-height: 44px; padding: 6px 12px; font-weight: 700; touch-action: manipulation; }
+.headlight button[aria-pressed="true"] { border-color: #59b5ff; background: linear-gradient(135deg,#288bff,#26a5f5); color: #fff; box-shadow: 0 0 10px #238cff40; }
+.headlight button:focus-visible { outline: 2px solid #65bfff; outline-offset: 2px; }
+.cam__headlight .headlight__error { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam__headlight .headlight { gap: 4px 7px; border-radius: 10px; background: rgba(0,10,25,.35); backdrop-filter: blur(4px); border-color: rgba(80,190,240,.4); box-shadow: 0 2px 8px #0002; text-shadow: 0 1px 3px #000; }
+.cam__headlight .headlight button { border-radius: 24px; }
+.cam__headlight .headlight output { font-size: 10px; }
+.cam__headlight .headlight--on output { color: #8dd4ff; }

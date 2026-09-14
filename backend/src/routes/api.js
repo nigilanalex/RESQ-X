@@ -12,9 +12,10 @@ const VALID_ACTIONS = new Set([
   "light_on",
   "light_off",
 ]);
-const SIMULATION_SCENARIOS = new Set(["normal", "fire", "high_temp", "impact", "human", "gas", "water", "low_battery", "gps_available", "gps_unavailable", "offline"]);
+const SIMULATION_SCENARIOS = new Set(["normal", "fire", "high_temp", "impact", "human", "human_moving", "human_stationary", "no_human", "human_sensor_unavailable", "gas", "water", "low_battery", "gps_available", "gps_unavailable", "offline", "camera_online", "camera_offline", "camera_not_configured", "camera_error"]);
 
 function buildApiRouter(mqttHandle) {
+  ["human_fire", "human_high_temp", "human_impact", "fire_high_temp", "multiple_hazards", "all_clear"].forEach(scenario => SIMULATION_SCENARIOS.add(scenario));
   const router = express.Router();
 
   router.get("/units", (req, res) => {

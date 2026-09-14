@@ -4,8 +4,18 @@ const { computeRisk } = require("./riskEngine");
 const alertService = require("./alertService");
 
 function finiteNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function normalizeHuman(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  const status = ["HUMAN_DETECTED", "NO_HUMAN", "NOT_AVAILABLE"].includes(value.status) ? value.status : "NOT_AVAILABLE";
+  const available = value.available === true;
+  return { presence: available && value.presence === true, moving: available && value.moving === true, stationary: available && value.stationary === true, distance: finiteNumber(value.distance), status: available ? status : "NOT_AVAILABLE", available, sensor: ["LD2410", "ESP32-CAM", "THERMAL", "COMBINED"].includes(value.sensor) ? value.sensor : "LD2410" };
+}
+function normalizeCamera(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  const status = ["NOT_CONNECTED", "CONNECTING", "ONLINE", "STREAMING", "OFFLINE", "ERROR"].includes(value.status) ? value.status : "NOT_CONNECTED";
+  return { available: value.available === true, connected: value.connected === true, streaming: value.streaming === true, streamUrl: null, source: value.source === "ESP32-CAM" ? "ESP32-CAM" : "ESP32-CAM", simulated: value.simulated === true, lastFrameAt: Number.isFinite(Number(value.lastFrameAt)) ? Number(value.lastFrameAt) : null, status };
 }
 
 function normalizeSensors(raw) {
@@ -42,6 +52,8 @@ function normalizeSensors(raw) {
       scenario: typeof raw.simulation.scenario === "string" ? raw.simulation.scenario : "normal",
       events: Array.isArray(raw.simulation.events) ? raw.simulation.events.filter((event) => typeof event === "string") : [],
     } : null,
+    human: normalizeHuman(raw.human),
+    camera: normalizeCamera(raw.camera),
     gps: {
       valid: gpsValid,
       lat: gpsValid ? latitude : null,
@@ -114,6 +126,7 @@ function setupMqtt(io) {
       if (channel === "status") {
         const wasOnline = store.getUnit(unitId)?.online;
         const unit = store.setStatus(unitId, payload.trim().toLowerCase() === "online");
+        alertService.updateIntelligence(unit);
         io.emit("unit:update", unit);
         if (wasOnline !== undefined && wasOnline !== unit.online) alertService.raiseUnitLinkAlert(unitId, unit.online, unit.sensors?.simulated === true);
         return;
@@ -123,12 +136,14 @@ function setupMqtt(io) {
       if (channel === "sensors") {
         const unit = store.updateSensors(unitId, normalizeSensors(data));
         store.setRisk(unitId, computeRisk({ sensors: unit.sensors, detection: unit.detection }));
+        alertService.updateIntelligence(unit);
         io.emit("unit:update", store.getUnit(unitId));
         await alertService.maybeRaiseAlert(unitId, unit.risk, unit.detection, unit.sensors);
       } else if (channel === "detection") {
         if (!data || typeof data !== "object") throw new Error("detection payload must be a JSON object");
         const unit = store.updateDetection(unitId, data);
         store.setRisk(unitId, computeRisk({ sensors: unit.sensors, detection: unit.detection }));
+        alertService.updateIntelligence(unit);
         io.emit("unit:update", store.getUnit(unitId));
         await alertService.maybeRaiseAlert(unitId, unit.risk, unit.detection, unit.sensors);
       }

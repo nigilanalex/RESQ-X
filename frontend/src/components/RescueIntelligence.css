@@ -1,0 +1,27 @@
+.intelligence { padding: 14px; border: 1px solid #14518e; border-radius: 10px; background: linear-gradient(145deg,#0b1b2d,#071524); color: #c9dcf7; overflow-wrap: anywhere; }
+.intelligence h2 { font: 700 15px var(--font-display); margin: 0 0 8px; color: #b9d8ff; }
+.intelligence h3 { font: 700 17px var(--font-display); margin: 10px 0; }
+.intelligence small { color: #92afd1; font-size: 10px; }
+.intelligence p, .intelligence details { font-size: 12px; line-height: 1.45; }
+.intelligence summary { cursor: pointer; }
+.intelligence ul { padding-left: 18px; }
+.intelligence__action b { display: block; margin-bottom: 4px; color: #92c7ff; }
+.intelligence--critical { border-color: #ff5656; }.intelligence--critical h3 { color: #ff7777; }
+.intelligence--high h3, .intelligence--warning h3 { color: #ffb569; }
+.intelligence__location { font: 10px var(--font-mono); }
+/* Natural card sizing prevents camera/control content from being clipped.
+   Size containment prevents notifications from influencing grid track heights. */
+.app { height: auto; min-height: 100vh; overflow: visible; }
+.console-grid { grid-template-rows: auto auto; overflow: visible; }
+.console-grid__camera, .console-grid__controls, .console-grid__telemetry { overflow: visible; }
+.console-grid__camera .cam, .console-grid__controls .ctrl { height: auto; }
+.console-grid__telemetry { grid-template-rows: auto auto; align-content: start; }
+.location-panel { place-items: stretch; grid-template-rows: auto auto; }
+.location-panel__heading { min-height: 48px; }
+.location-panel__body { min-height: 128px; }
+.console-grid__notifications { contain: size; display: grid; grid-template-rows: auto minmax(220px,1fr); gap: 14px; height: 100%; }
+.console-grid__notifications .afeed { min-height: 0; height: 100%; }
+.intelligence { max-height: 360px; overflow-y: auto; }
+.sgrid__row { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }.sgrid__id { display:none; }.sgrid__value { overflow-wrap: anywhere; }
+.console-status__group span { white-space: normal; overflow-wrap: anywhere; }
+@media(max-width:960px) { .console-grid__notifications { contain: none; height: auto; grid-template-rows: auto 360px; }.console-grid__telemetry { grid-template-rows: auto auto; } }
