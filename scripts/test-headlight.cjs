@@ -17,7 +17,7 @@ test('headlight HTTP acknowledgement, simulation isolation, failures and notific
   const unit = { online: true, operatingMode: 'SIMULATION' };
   const notices = [];
   const service = createHeadlightService({ getUnit: () => unit, notify: n => notices.push(n), baseUrl: `http://127.0.0.1:${server.address().port}` });
-  const api = express(); api.use(express.json()); api.use(buildHeadlightRouter(service));
+  const api = express(); api.use(express.json()); api.use(buildHeadlightRouter(service, { auth: { requireRoles: () => (req, res, next) => next(), csrf: (req, res, next) => next() }, security: { audit: () => {} }, validUnit: () => true }));
   const apiServer = await new Promise(resolve => { const s = api.listen(0, '127.0.0.1', () => resolve(s)); });
   try {
     assert.equal((await service.run('unit-01', 'ON')).state, 'ON');

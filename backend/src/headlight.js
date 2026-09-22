@@ -1,5 +1,7 @@
 const express = require('express');
 const crypto = require('node:crypto');
+const { ROLES } = require('./security');
+const { safeBaseUrl } = require('./cameraCapture');
 
 function createHeadlightService({ getUnit, notify, baseUrl = process.env.ESP32_CAM_BASE_URL, request = fetch }) {
   const simulatedStates = new Map();
@@ -25,8 +27,7 @@ function createHeadlightService({ getUnit, notify, baseUrl = process.env.ESP32_C
     }
     try {
       if (!baseUrl) throw new Error('ESP32_CAM_BASE_URL is not configured');
-      const base = new URL(baseUrl);
-      if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) throw new Error('Invalid ESP32-CAM base URL');
+      const base = safeBaseUrl(baseUrl);
       const url = new URL('/headlight', base);
       if (state) url.searchParams.set('state', state.toLowerCase());
       const response = await request(url, { signal: AbortSignal.timeout(2500), redirect: 'error', cache: 'no-store' });
@@ -36,7 +37,7 @@ function createHeadlightService({ getUnit, notify, baseUrl = process.env.ESP32_C
       // Discard an acknowledgement if the unit went offline or changed mode in flight.
       if (!getUnit(unitId)?.online || getUnit(unitId)?.operatingMode !== 'LIVE') return unavailable('Unit mode or connectivity changed');
       return publish(unitId, { state: body.state, simulated: false });
-    } catch (error) { return unavailable(error.name === 'TimeoutError' ? 'Camera request timed out' : error.message); }
+    } catch (error) { return unavailable(error.name === 'TimeoutError' ? 'Camera request timed out' : 'Camera request failed'); }
   }
   return {
     run(unitId, state) {
@@ -48,15 +49,18 @@ function createHeadlightService({ getUnit, notify, baseUrl = process.env.ESP32_C
   };
 }
 
-function buildHeadlightRouter(service) {
+function buildHeadlightRouter(service, { auth, security, validUnit }) {
   const router = express.Router();
   router.get('/units/:unitId/headlight', async (req, res, next) => {
+    if (!validUnit(req.params.unitId)) return res.status(404).json({ error: 'Unknown unit' });
     try { res.json(await service.run(req.params.unitId)); } catch (error) { next(error); }
   });
-  router.post('/units/:unitId/headlight', async (req, res, next) => {
-    if (!['ON', 'OFF'].includes(req.body?.state)) return res.status(400).json({ error: 'state must be ON or OFF' });
+  router.post('/units/:unitId/headlight', auth.requireRoles(ROLES.ADMIN, ROLES.OPERATOR), auth.csrf, async (req, res, next) => {
+    if (!validUnit(req.params.unitId)) return res.status(404).json({ error: 'Unknown unit' });
+    if (!['ON', 'OFF'].includes(req.body?.state) || Object.keys(req.body || {}).length !== 1) return res.status(400).json({ error: 'state must be ON or OFF' });
     try {
       const result = await service.run(req.params.unitId, req.body.state);
+      security.audit('HEADLIGHT_CHANGE', { userId: req.auth.user.id, role: req.auth.user.role, action: req.body.state, unitId: req.params.unitId, result: result.state === 'UNAVAILABLE' ? 'FAILED' : 'SUCCESS' });
       res.status(result.state === 'UNAVAILABLE' ? 503 : 200).json(result);
     } catch (error) { next(error); }
   });

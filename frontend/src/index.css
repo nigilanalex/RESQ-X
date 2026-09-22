@@ -1,9 +1,9 @@
 :root {
   /* --- Palette: night-ops instrument panel, not a marketing page --- */
-  --bg-deep: #0a0f1a;
-  --bg-panel: #121a2b;
-  --bg-panel-raised: #182238;
-  --hairline: #26324a;
+  --bg-deep: #05080d;
+  --bg-panel: #0b111a;
+  --bg-panel-raised: #11202c;
+  --hairline: #263747;
   --text-primary: #e8ecf5;
   --text-muted: #8a96b3;
   --text-faint: #566080;
@@ -13,13 +13,13 @@
   --level-medium: #fbbf24;
   --level-high: #fb7a24;
   --level-critical: #ff3b3b;
-  --accent: #ff7a30;
+  --accent: #67c9e5;
   --online: #34d399;
   --offline: #566080;
 
   /* Type */
-  --font-display: "Space Grotesk", sans-serif;
-  --font-ui: "Inter", sans-serif;
+  --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-ui: "Inter", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
@@ -44,7 +44,10 @@ body {
 
 button {
   font-family: inherit;
+  transition: background-color .18s, border-color .18s, color .18s;
 }
+html { scrollbar-color: #36536a #0b111a; }
+button, select, input { max-width:100%; }
 
 ::selection {
   background: var(--accent);

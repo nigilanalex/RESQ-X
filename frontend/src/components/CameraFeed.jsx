@@ -2,13 +2,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./CameraFeed.css";
 import HeadlightControl from './HeadlightControl';
 import { captureMetadata } from './photoEvidence';
+import RecordingControl from './RecordingControl';
+import { apiFetch } from '../api/socket';
 
 function validUrl(value) {
-  try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:"; }
+  try {
+    const url = new URL(value);
+    return value.length <= 2048 && (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password && !url.search && !url.hash && Boolean(url.hostname) && /\/stream\/?$/.test(url.pathname);
+  }
   catch { return false; }
 }
 
-export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptured }) {
+export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptured, onStatusChange, canOperate = false, canConfigure = false }) {
+  const simulated = unit?.operatingMode === 'SIMULATION';
+  const streamEnabled = unit?.online === true && unit?.operatingMode === 'LIVE' && validUrl(streamUrl);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(streamUrl || "");
   const [health, setHealth] = useState(streamUrl ? "CONNECTING" : "NOT_CONNECTED");
@@ -47,6 +54,10 @@ export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptu
   async function captureImage() {
     if (captureRequest.current) return;
     setCaptureMessage('');
+    if (!canOperate) {
+      setCaptureMessage('CAPTURE REQUIRES OPERATOR ACCESS');
+      return;
+    }
     if (unit?.operatingMode === 'SIMULATION') {
       setCaptureMessage('PHOTO CAPTURED (SIMULATED)');
       return; // No request and no fabricated download in simulation.
@@ -60,13 +71,8 @@ export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptu
     setCapturing(true);
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-      // The control/capture server is separate from the MJPEG server on port 81.
-      const base = new URL(import.meta.env.VITE_ESP32_CAM_BASE_URL || streamUrl);
-      if (!['http:', 'https:'].includes(base.protocol)) throw new Error('Invalid camera URL');
-      if (!import.meta.env.VITE_ESP32_CAM_BASE_URL && base.port === '81') base.port = '';
-      const captureUrl = new URL('/capture', base);
-      const metadata = captureMetadata(unit, captureUrl.href);
-      const response = await fetch(captureUrl, { signal: controller.signal, cache: 'no-store' });
+      const metadata = captureMetadata(unit, 'ESP32-CAM');
+      const response = await apiFetch(`/api/units/${encodeURIComponent(unit.unitId)}/capture`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', signal: controller.signal, cache: 'no-store' });
       if (!response.ok) throw new Error(`Camera HTTP ${response.status}`);
       const blob = await response.blob();
       const signature = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
@@ -115,10 +121,9 @@ export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptu
     });
   };
   const camera = unit?.sensors?.camera || {};
-  const simulated = unit?.operatingMode === "SIMULATION";
   useEffect(() => {
-    setHealth(streamUrl ? (imageErrorRef.current ? "ERROR" : "CONNECTING") : "NOT_CONNECTED");
-    if (!streamUrl) return;
+    setHealth(streamEnabled ? (imageErrorRef.current ? "ERROR" : "CONNECTING") : "NOT_CONNECTED");
+    if (!streamEnabled) return;
     // MJPEG can render frames without completing a normal image load.
     // Never wait for response completion or fail an open stream on a timer.
     const inspectImage = () => {
@@ -142,26 +147,28 @@ export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptu
     // Read DOM metrics only; this never changes src or starts another request.
     const timer = setInterval(inspectImage, 1000);
     return () => clearInterval(timer);
-  }, [streamUrl, attempt]);
-  const status = streamUrl ? health : (camera.status || "NOT_CONNECTED");
+  }, [streamUrl, attempt, streamEnabled]);
+  const status = simulated ? `SIMULATED ${camera.status || 'NOT_CONNECTED'}` : !unit?.online ? 'OFFLINE' : streamEnabled ? health : 'NOT_CONNECTED';
+  useEffect(() => { onStatusChange?.({ unitId:unit?.unitId, status }); }, [onStatusChange, unit?.unitId, status]);
   const save = () => { if (validUrl(draft)) { setHealth("CONNECTING"); setAttempt(value => value + 1); onChangeStreamUrl(draft); setEditing(false); } };
   const offline = status !== "ONLINE" && status !== "STREAMING";
   return <div className="cam">
-    <div className="cam__heading"><span>CAMERA <small>LIVE VIEW</small></span><span className={offline ? "cam__stream" : "cam__stream is-live"}>● {streamUrl ? (status === "CONNECTING" ? "CONNECTING" : offline ? "OFFLINE" : "LIVE") : simulated ? `SIMULATED ${status}` : offline ? "OFFLINE" : "LIVE"}</span></div>
+    <div className="cam__heading"><span>CAMERA <small>MISSION VISUAL FEED</small></span><span className={offline ? "cam__stream" : "cam__stream is-live"}>● {status}</span></div>
     <div className="cam__frame" ref={frameRef}>
-      <div className="cam__headlight"><HeadlightControl unit={unit} /></div>
-      {streamUrl && <img key={`${streamUrl}:${attempt}`} ref={mountImage} className="cam__img" src={streamUrl} alt="ESP32-CAM stream" onError={handleImageError} />}
-      {(!streamUrl || health === "ERROR") && <div className="cam__placeholder"><strong>CAMERA OFFLINE</strong><span>{streamUrl ? "ESP32-CAM STREAM UNAVAILABLE" : "ESP32-CAM NOT CONNECTED"}</span><small>{streamUrl ? "Retry or update the stream URL" : "No stream configured"}</small>{simulated && <em>SIMULATED CAMERA STATE: {camera.status || "NOT_CONNECTED"}</em>}<button className="cam__configure" onClick={() => { setDraft(streamUrl || ""); setEditing(true); }}>{streamUrl ? "Retry / Set Stream URL" : "Set Stream URL"}</button></div>}
+      <div className="cam__headlight"><HeadlightControl unit={unit} canOperate={canOperate} /></div>
+      {streamEnabled && <img key={`${streamUrl}:${attempt}`} ref={mountImage} className="cam__img" src={streamUrl} alt="ESP32-CAM stream" onError={handleImageError} />}
+      {(!streamEnabled || health === "ERROR") && <div className="cam__placeholder"><span className="cam__reticle" aria-hidden="true">⌖</span><strong>{simulated ? 'SIMULATION MODE' : 'CAMERA OFFLINE'}</strong><span>{simulated ? 'NO PHYSICAL CAMERA REQUESTS' : streamUrl ? 'ESP32-CAM STREAM UNAVAILABLE' : 'ESP32-CAM NOT CONNECTED'}</span><small>{simulated ? 'No simulated video or evidence is generated' : streamUrl ? 'Retry or update the stream URL' : 'No stream configured'}</small>{simulated && <em>SIMULATED CAMERA STATE: {camera.status || "NOT_CONNECTED"}</em>}{canConfigure && <button className="cam__configure" onClick={() => { setDraft(streamUrl || ""); setEditing(true); }}>{streamUrl ? "Retry / Set Stream URL" : "Set Stream URL"}</button>}</div>}
       <div className="cam__actions">
-        <button onClick={captureImage} disabled={capturing} aria-busy={capturing}>{capturing ? 'CAPTURING…' : '📸 CAPTURE IMAGE'}</button>
+        <button onClick={captureImage} disabled={capturing || !canOperate} aria-busy={capturing}>{capturing ? 'CAPTURING…' : '📸 CAPTURE IMAGE'}</button>
         <button onClick={toggleFullscreen}>{fullscreen ? '⛶ EXIT FULL SCREEN' : '⛶ FULL SCREEN'}</button>
+        <RecordingControl />
       </div>
       {(captureMessage || fullscreenError) && <div className="cam__feedback" role="status">{captureMessage || fullscreenError}</div>}
     </div>
-    <div className="cam__bar"><span className="cam__label">STATUS: {status}</span><span className="cam__feed-label">{streamUrl ? "STREAM CONFIGURED" : "STREAM NOT CONFIGURED"}</span>{streamUrl && <button className="cam__edit" onClick={() => { setDraft(streamUrl); setEditing(true); }}>Retry / Set Stream URL</button>}</div>
-    {editing && <div className="cam__editor" role="region" aria-label="Camera Stream URL editor"><div className="cam__dialog"><label htmlFor="camera-stream-url">Camera Stream URL</label><input id="camera-stream-url" type="url" autoFocus value={draft} placeholder="http://192.168.x.x/..." onChange={(event) => setDraft(event.target.value)} /><small>{draft && !validUrl(draft) ? "Enter a valid HTTP or HTTPS URL." : "Enter the ESP32-CAM stream URL (HTTP/HTTPS)."}</small><div><button onClick={() => setEditing(false)}>Cancel</button><button disabled={!validUrl(draft)} onClick={save}>Save</button></div></div></div>}
-    {streamUrl && <div className="cam__diagnostics" aria-label="Temporary camera diagnostics">
-      <strong>CAMERA DIAGNOSTICS (TEMPORARY)</strong>
+    <div className="cam__bar"><span className="cam__label">STATUS: {status}</span><span className="cam__feed-label">{streamUrl ? "STREAM CONFIGURED" : "STREAM NOT CONFIGURED"}</span>{canConfigure && streamUrl && <button className="cam__edit" onClick={() => { setDraft(streamUrl); setEditing(true); }}>Retry / Set Stream URL</button>}</div>
+    {canConfigure && editing && <div className="cam__editor" role="region" aria-label="Camera Stream URL editor"><div className="cam__dialog"><label htmlFor="camera-stream-url">Camera Stream URL</label><input id="camera-stream-url" type="url" autoFocus value={draft} placeholder="http://192.168.x.x/stream" onChange={(event) => setDraft(event.target.value)} /><small>{draft && !validUrl(draft) ? "Enter a credential-free HTTP/HTTPS URL ending in /stream." : "Enter the ESP32-CAM MJPEG stream URL."}</small><div><button onClick={() => setEditing(false)}>Cancel</button><button disabled={!validUrl(draft)} onClick={save}>Save</button></div></div></div>}
+    {streamUrl && <details className="cam__diagnostics" aria-label="Camera diagnostics">
+      <summary>CAMERA DIAGNOSTICS</summary>
       <span>Active URL: {streamUrl}</span>
       <span>Image mounted: {diagnostics?.mounted ? "YES" : "CHECKING"} | onerror: {diagnostics?.error ? "YES" : "NO"}</span>
       <span>Rendered: {diagnostics?.width ?? "?"} x {diagnostics?.height ?? "?"} px | Decoded: {diagnostics?.naturalWidth ?? 0} x {diagnostics?.naturalHeight ?? 0} px</span>
@@ -169,6 +176,6 @@ export default function CameraFeed({ unit, streamUrl, onChangeStreamUrl, onCaptu
       <span>Assigned src: {diagnostics?.src ?? streamUrl}</span>
       <span>Resolved src: {diagnostics?.resolvedSrc ?? "Checking"}</span>
       <small>{window.location.protocol === "https:" && streamUrl.startsWith("http:") ? "HTTPS page with HTTP camera: check Console for mixed-content blocking. " : ""}If blank, inspect the stream request in DevTools Network and local-network permission errors in Console. An image error cannot reveal the underlying network reason.</small>
-    </div>}
+    </details>}
   </div>;
 }

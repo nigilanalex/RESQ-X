@@ -5,8 +5,13 @@
   "description": "RESQ-X development command runner",
   "scripts": {
     "predev": "node scripts/ensure-mosquitto.cjs",
-    "dev": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND,SIMULATOR --prefix-colors blue,magenta,green \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && npm.cmd --prefix backend run dev\" \"npm.cmd --prefix frontend run dev\" \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && npm.cmd --prefix backend run simulator\"",
-    "build": "npm.cmd --prefix frontend run build"
+    "dev": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND,SIMULATOR --prefix-colors blue,magenta,green \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && set \\\"RESQX_SIMULATION_MODE=true\\\" && npm.cmd --prefix backend run dev\" \"npm.cmd --prefix frontend run dev\" \"set \\\"MQTT_BROKER_URL=mqtt://localhost:1883\\\" && set \\\"RESQX_SIMULATION_MODE=true\\\" && npm.cmd --prefix backend run simulator\"",
+    "dev:hardware": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND --prefix-colors blue,magenta \"set \\\"RESQX_SIMULATION_MODE=false\\\" && npm.cmd --prefix backend run dev\" \"npm.cmd --prefix frontend run dev\"",
+    "build": "npm.cmd --prefix frontend run build",
+    "test:security": "node scripts/test-security.cjs",
+    "test:intelligence": "node scripts/test-intelligence-unit.cjs",
+    "test:motor": "node scripts/test-motor-control.cjs",
+    "test": "npm.cmd run test:security && npm.cmd run test:intelligence && npm.cmd run test:motor && node scripts/test-headlight.cjs && node scripts/test-command-center.cjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

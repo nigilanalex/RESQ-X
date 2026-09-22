@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "simulator": "node src/simulator.js"
+    "simulator": "node src/simulator.js",
+    "init-admin": "node scripts/init-admin.cjs",
+    "reset-password": "node scripts/reset-password.cjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

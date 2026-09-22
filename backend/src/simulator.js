@@ -2,11 +2,14 @@
 const path = require("node:path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const mqtt = require("mqtt");
+const { MOTOR_STATUS_TOPIC, MOTOR_SIMULATOR_COMMAND_TOPIC, MOTOR_COMMANDS } = require('./motorControl');
 const unitId = process.env.RESQX_SIMULATOR_UNIT_ID || "unit-01";
 const brokerUrl = process.env.MQTT_BROKER_URL || "mqtt://localhost:1883";
-const topics = { sensors: `resqx/${unitId}/sensors`, status: `resqx/${unitId}/status`, detection: `resqx/${unitId}/detection`, control: `resqx/${unitId}/control`, simulator: `resqx/${unitId}/simulator` };
+const topics = { sensors: `resqx/${unitId}/sensors`, status: `resqx/${unitId}/status`, detection: `resqx/${unitId}/detection`, simulator: `resqx/${unitId}/simulator` };
 let interval = null; let scenario = "normal"; let paused = false;
 let cameraScenario = "camera_not_configured";
+let motorHeartbeat = null; let motorState = 'stopped'; let motorCommandId = null; let motorCommandAt = 0;
+const MOTOR_TIMEOUT_MS = 1000;
 const between = (min, max) => Number((min + Math.random() * (max - min)).toFixed(2));
 function eventList() { return ["normal", "offline", "no_human", "human_sensor_unavailable"].includes(scenario) ? [] : [scenario]; }
 function humanState() {
@@ -36,6 +39,29 @@ function detection() { const human = humanState(); return { unitId, type: human.
 function publishTelemetry() { if (paused || !client.connected) return; client.publish(topics.sensors, JSON.stringify(telemetry())); client.publish(topics.detection, JSON.stringify(detection())); console.log(`[SIMULATOR] ${scenario} published through MQTT`); }
 function startTelemetry() { if (!interval) interval = setInterval(publishTelemetry, 3000); publishTelemetry(); }
 function stopTelemetry() { if (interval) clearInterval(interval); interval = null; }
+function publishMotorStatus(reason = 'heartbeat', online = true) {
+  if (!client.connected) return;
+  client.publish(MOTOR_STATUS_TOPIC, JSON.stringify({ online, state: online ? motorState : 'offline', source: 'simulator', simulated: true, controllerId: 'motor-sim-01', commandId: motorCommandId, reason }), { qos: 1, retain: true });
+}
+function startMotorSimulator() {
+  if (motorHeartbeat) return;
+  publishMotorStatus('connected');
+  motorHeartbeat = setInterval(() => {
+    if (motorState !== 'stopped' && Date.now() - motorCommandAt >= MOTOR_TIMEOUT_MS) {
+      motorState = 'stopped'; motorCommandId = null; publishMotorStatus('timeout'); return;
+    }
+    publishMotorStatus();
+  }, 1000);
+}
+function handleMotorCommand(payload) {
+  try {
+    const command = JSON.parse(payload);
+    if (!command || typeof command !== 'object' || Array.isArray(command) || Object.keys(command).some(key => !['command', 'commandId', 'issuedAt'].includes(key)) || !MOTOR_COMMANDS.has(command.command) || typeof command.commandId !== 'string') throw new Error('invalid command');
+    motorState = command.command === 'stop' ? 'stopped' : command.command;
+    motorCommandId = command.commandId; motorCommandAt = Date.now();
+    publishMotorStatus('command');
+  } catch { console.error('[SIMULATOR] rejected invalid motor command'); }
+}
 function setScenario(next) {
   if (next === "all_clear") { cameraScenario = "camera_not_configured"; next = "normal"; }
   if (["camera_online", "camera_offline", "camera_not_configured", "camera_error"].includes(next)) { cameraScenario = next; publishTelemetry(); console.log(`[SIMULATOR] camera state set to ${next}`); return; }
@@ -43,10 +69,17 @@ function setScenario(next) {
   if (next === "offline") { paused = true; stopTelemetry(); client.publish(topics.status, "offline", { qos: 1, retain: true }); console.log("[SIMULATOR] unit-01 telemetry paused (offline scenario)"); return; }
   const recovering = paused; paused = false; client.publish(topics.status, "online", { qos: 1, retain: true }); startTelemetry(); console.log(`[SIMULATOR] scenario set to ${next}${recovering ? " (unit link resumed)" : ""}`);
 }
-const client = mqtt.connect(brokerUrl, { clientId: `resqx-simulator-${unitId}`, reconnectPeriod: 2000, will: { topic: topics.status, payload: "offline", qos: 1, retain: true } });
-client.on("connect", () => { console.log(`[SIMULATOR] connected to ${brokerUrl}`); client.subscribe([topics.control, topics.simulator]); setScenario(paused ? "offline" : scenario); });
+const motorWill = JSON.stringify({ online: false, state: 'offline', source: 'simulator', simulated: true, controllerId: 'motor-sim-01', commandId: null, reason: 'disconnected' });
+const client = mqtt.connect(brokerUrl, { clientId: `resqx-simulator-${unitId}`, username: process.env.MQTT_USERNAME || undefined, password: process.env.MQTT_PASSWORD || undefined, reconnectPeriod: 2000, will: { topic: MOTOR_STATUS_TOPIC, payload: motorWill, qos: 1, retain: true } });
+client.on("connect", () => { console.log(`[SIMULATOR] connected to ${brokerUrl}`); client.subscribe([topics.simulator, MOTOR_SIMULATOR_COMMAND_TOPIC]); setScenario(paused ? "offline" : scenario); startMotorSimulator(); });
 client.on("reconnect", () => console.log("[SIMULATOR] reconnecting to MQTT..."));
 client.on("error", (error) => console.error("[SIMULATOR] MQTT error:", error.message));
-client.on("message", (topic, payload) => { if (topic === topics.simulator) { try { const { scenario: next } = JSON.parse(payload); setScenario(next); } catch { console.error("[SIMULATOR] invalid scenario command"); } } else console.log(`[SIMULATOR] received ${topic}: ${payload} (no hardware action)`); });
-function shutdown() { stopTelemetry(); if (client.connected) client.publish(topics.status, "offline", { qos: 1, retain: true }, () => client.end()); else client.end(); }
+client.on("message", (topic, payload) => { if (topic === topics.simulator) { try { const { scenario: next } = JSON.parse(payload); setScenario(next); } catch { console.error("[SIMULATOR] invalid scenario command"); } } else if (topic === MOTOR_SIMULATOR_COMMAND_TOPIC) handleMotorCommand(payload); });
+function shutdown() {
+  stopTelemetry(); if (motorHeartbeat) clearInterval(motorHeartbeat); motorHeartbeat = null; motorState = 'stopped';
+  if (client.connected) {
+    client.publish(topics.status, 'offline', { qos:1, retain:true });
+    client.publish(MOTOR_STATUS_TOPIC, JSON.stringify({ online:false, state:'offline', source:'simulator', simulated:true, controllerId:'motor-sim-01', commandId:null, reason:'disconnected' }), { qos:1, retain:true }, () => client.end());
+  } else client.end();
+}
 process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);

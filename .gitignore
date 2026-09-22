@@ -3,3 +3,5 @@ node_modules/
 dist/
 *.log
 firmware/resqx_unit/secrets.h
+firmware/resqx_motor_controller/secrets.h
+backend/.data/

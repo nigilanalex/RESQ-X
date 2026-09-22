@@ -1,46 +1,6 @@
-.sgrid { background: linear-gradient(145deg, #0b1b2d, #071524); border: 1px solid #174f87; border-radius: 10px; padding: 0 14px; }
-
-.sgrid__title { min-height: 50px; display: flex; align-items: center; color: #c5e1ff; font: 700 16px var(--font-display); letter-spacing: .04em; }
-
-.sgrid__list {
-  display: flex;
-  flex-direction: column;
-}
-
-.sgrid__row {
-  display: grid;
-  grid-template-columns: 74px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(60,106,150,.36);
-}
-
-.sgrid__row:last-child {
-  border-bottom: none;
-}
-
-.sgrid__id {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #6d9bd0;
-}
-
-.sgrid__label {
-  font-size: 14px;
-  color: #c6daf5;
-}
-
-.sgrid__value {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 700;
-  color: #e4efff;
-  text-align: right;
-}
-
-.sgrid__value.is-danger {
-  color: var(--level-critical);
-  font-weight: 700;
-}
+.sgrid { min-width:0; }.sgrid__title { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:12px; color:#adc9da; font:600 11px var(--font-ui); letter-spacing:.06em; }.sgrid__title small { color:#748f9f; font:9px var(--font-mono); }
+.sgrid__list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:10px; }.sgrid__row { position:relative; min-width:0; display:grid; grid-template-columns:24px minmax(0,1fr); gap:8px; padding:16px; border:1px solid #263c4b; border-radius:8px; background:linear-gradient(130deg,#0c1a25,#0a121b); }
+.sgrid__icon { color:#63b8d1; font:19px var(--font-display); grid-row:1/4; }.sgrid__label { font:12px var(--font-ui); color:#9fb6c8; }.sgrid__value { font:600 18px var(--font-mono); color:#dceaf5; overflow-wrap:anywhere; }.sgrid__status { color:#7ca695; font:9px var(--font-mono); letter-spacing:.04em; }.sgrid__row.is-danger { border-color:#72404a; }.sgrid__row.is-danger .sgrid__value,.sgrid__row.is-danger .sgrid__status { color:#ee8a8f; }
+.sgrid--compact .sgrid__list { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }.sgrid--compact .sgrid__row { padding:12px 10px; grid-template-columns:minmax(0,1fr); gap:7px; }.sgrid--compact .sgrid__icon { display:none; }.sgrid--compact .sgrid__value { font-size:12px; }.sgrid--compact .sgrid__label { font-size:10px; }.sgrid--compact .sgrid__status { font-size:8px; }
+.sgrid__footnote { font-size:11px; color:#7d95a7; }
+@media(max-width:1450px) { .sgrid--compact .sgrid__list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
