@@ -55,17 +55,16 @@ The root command checks that the Mosquitto service is running. It starts the bac
 ```powershell
 cd C:\Users\Nigilan\Downloads\resqx-full-stack\resqx
 npm.cmd install
-npm.cmd --prefix backend run init-admin -- admin
 npm.cmd run dev
 ```
 
-The account command prompts for a hidden password of at least 12 characters. It creates a salted `scrypt` hash under the git-ignored `backend/.data/` directory; no default password exists. On later runs, use the account you created. Rotate it with `npm.cmd --prefix backend run reset-password -- admin`.
-
-Open the dashboard at:
+The backend prints a high-entropy local dashboard link similar to:
 
 ```text
-http://localhost:5173
+http://localhost:5173/?access=...
 ```
+
+Open that link. It creates a protected HttpOnly session automatically and removes the access token from the address bar. There is no username/password login page. A new link is generated whenever the backend restarts.
 
 Use `npm.cmd` in PowerShell if your Windows execution policy blocks `npm.ps1`.
 
@@ -82,7 +81,7 @@ Press `Ctrl + C` once in that terminal to stop the RESQ-X development stack.
 | Frontend | Vite React dashboard on port `5173`. |
 | Simulator | Publishes safe, clearly marked `unit-01` test telemetry every 3 seconds. |
 
-The dashboard requires an authenticated `ADMIN`, `OPERATOR`, or `VIEWER` session. Controls, STOP, simulation actions, capture, and headlight changes are enforced by backend roles and CSRF checks. See `SECURITY.md` for the complete security model and current limitations.
+The dashboard still uses a protected server-side session. Controls, STOP, simulation actions, capture, and headlight changes remain enforced by backend roles and CSRF checks. Local passwordless startup is enabled only by the root development commands and requires the random link printed in the same terminal. See `SECURITY.md` for the complete security model and current limitations.
 
 The development command uses `mqtt://localhost:1883` for software-only simulation. Your saved backend `.env` broker configuration is not overwritten.
 It also sets `RESQX_SIMULATION_MODE=true` inside the development child processes. This server-side lock rejects physical motor control and prevents publishing to `resqx/robot/motor/command` during a software-only run.

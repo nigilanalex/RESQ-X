@@ -20,6 +20,9 @@ async function main() {
   const admin = security.createUser({ username: 'admin-test', password: 'long-test-password-only', role: ROLES.ADMIN });
   const viewer = security.createUser({ username: 'viewer-test', password: 'long-test-password-only', role: ROLES.VIEWER });
   const operator = security.createUser({ username: 'operator-test', password: 'long-test-password-only', role: ROLES.OPERATOR });
+  const localSession = security.createLocalSession();
+  assert.equal(localSession.user.role, ROLES.ADMIN, 'local dashboard session has command-center access');
+  assert.equal(security.getSession(localSession.token)?.user.username, 'local-dashboard', 'local dashboard session is server-side and retrievable');
   const auth = createAuthMiddleware(security);
   const published = [];
   const mqttHandle = { unitIds: ['unit-01'], sendControl(unitId, action) { published.push({ unitId, action }); return { unitId, action, simulated: true }; }, sendSimulationScenario() { return { simulated: true }; } };
@@ -73,7 +76,7 @@ async function main() {
     process.env.RESQX_UNIT_IDS = oldUnits;
     assert.equal(security.verifyPassword('wrong-password', security.userByUsername(admin.username).passwordHash), false, 'failed login remains safe');
     const audit = fs.readFileSync(path.join(dataDir, 'audit.jsonl'), 'utf8'); assert.ok(!audit.includes('long-test-password-only'), 'password absent from audit log');
-    console.log('Security tests passed: auth, RBAC, STOP, headlight, size limits, MQTT schemas, simulation isolation, URL/path safety, headers, audit secrecy.');
+    console.log('Security tests passed: secure local session, auth, RBAC, STOP, headlight, size limits, MQTT schemas, simulation isolation, URL/path safety, headers, audit secrecy.');
   } finally { await new Promise(resolve => server.close(resolve)); if (path.resolve(dataDir).startsWith(path.resolve(os.tmpdir()) + path.sep)) fs.rmSync(dataDir, { recursive: true, force: true }); }
 }
 main().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

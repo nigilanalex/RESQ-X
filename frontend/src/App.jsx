@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, setCsrfToken, socket } from "./api/socket";
-import Login from './components/Login';
 import Header from "./components/Header.jsx";
 import CameraFeed from "./components/CameraFeed.jsx";
 import CapturedPhotos from './components/CapturedPhotos';
@@ -18,30 +17,31 @@ const now = () => Date.now();
 const statusNotice = (message, severity = "SYSTEM", unitId = "SYSTEM") => ({ id: `${unitId}-${message}-${now()}`, message, severity, unitId, timestamp: now() });
 
 export default function App() {
-  const [authState, setAuthState] = useState({ loading: true, user: null, setupRequired: false });
+  const [authState, setAuthState] = useState({ loading: true, user: null, error: null });
   useEffect(() => {
     let cancelled = false;
-    apiFetch('/api/auth/me').then(async response => {
-      if (!response.ok) {
-        const status = await apiFetch('/api/auth/status').then(item => item.json()).catch(() => ({}));
-        if (!cancelled) setAuthState({ loading: false, user: null, setupRequired: status.configured === false });
-        return;
+    async function openCommandCenter() {
+      try {
+        let response = await apiFetch('/api/auth/me');
+        if (!response.ok) {
+          const url = new URL(window.location.href);
+          const accessToken = url.searchParams.get('access');
+          if (!accessToken) throw new Error('Open the secure local dashboard link printed by the backend.');
+          url.searchParams.delete('access');
+          window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+          response = await apiFetch('/api/auth/local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken }) });
+          if (!response.ok) throw new Error('The secure local dashboard link is invalid or expired. Restart RESQ-X and open the new link.');
+        }
+        const data = await response.json();
+        setCsrfToken(data.csrfToken);
+        if (!cancelled) { setAuthState({ loading: false, user: data.user, error: null }); socket.connect(); }
+      } catch (error) {
+        if (!cancelled) setAuthState({ loading: false, user: null, error: error.message });
       }
-      const data = await response.json(); setCsrfToken(data.csrfToken);
-      if (!cancelled) { setAuthState({ loading: false, user: data.user, setupRequired: false }); socket.connect(); }
-    }).catch(() => { if (!cancelled) setAuthState({ loading:false, user:null, setupRequired:false }); });
+    }
+    openCommandCenter();
     return () => { cancelled = true; };
   }, []);
-  function authenticated(user) { setAuthState({ loading: false, user, setupRequired: false }); socket.connect(); }
-  async function logout() {
-    try { await apiFetch('/api/auth/logout', { method: 'POST' }); }
-    finally {
-      socket.disconnect(); setCsrfToken(null);
-      photoUrls.current.forEach(url => URL.revokeObjectURL(url)); photoUrls.current.clear();
-      setPhotos([]); setUnits([]); unitRef.current = []; setMotorStatus(null); motorRef.current = null; setNotifications([]); setHistory([]); setAcknowledged({}); setSelectedUnitId(null); setCameraState(null); cameraStatusRef.current = null; mqttRef.current = null;
-      setAuthState({ loading: false, user: null, setupRequired: false });
-    }
-  }
   const [activeTab, setActiveTab] = useState('OVERVIEW');
   const [history, setHistory] = useState([]);
   const [acknowledged, setAcknowledged] = useState({});
@@ -122,10 +122,10 @@ export default function App() {
       setSocketConnected(false);
       if (reason === 'io server disconnect') {
         setCsrfToken(null); photoUrls.current.forEach(url => URL.revokeObjectURL(url)); photoUrls.current.clear(); setPhotos([]); setMotorStatus(null); motorRef.current = null;
-        setAuthState({ loading: false, user: null, setupRequired: false });
+        setAuthState({ loading: false, user: null, error: 'Session ended. Restart RESQ-X and open the new secure local dashboard link.' });
       }
     };
-    const onConnectError = (error) => { if (error?.message === 'Authentication required') setAuthState({ loading: false, user: null, setupRequired: false }); };
+    const onConnectError = (error) => { if (error?.message === 'Authentication required') setAuthState({ loading: false, user: null, error: 'Session unavailable. Open the secure local dashboard link printed by the backend.' }); };
     const onSnapshot = ({ units: initialUnits, motor, alerts, mqtt }) => {
       unitRef.current = initialUnits;
       setUnits(initialUnits);
@@ -169,11 +169,11 @@ export default function App() {
   const currentCameraStatus = cameraState?.unitId === selectedUnitId ? cameraState.status : 'NOT AVAILABLE';
   const visibleAlerts = notifications.filter(alert => !acknowledged[alert.id]);
   if (authState.loading) return <div className="app__empty">Checking secure session…</div>;
-  if (!authState.user) return <><Login onAuthenticated={authenticated} />{authState.setupRequired && <div className="app__empty">An administrator must initialize the first local account before sign-in.</div>}</>;
+  if (!authState.user) return <div className="app__empty">{authState.error || 'Secure command-center session unavailable.'}</div>;
   const canOperate = ['ADMIN', 'OPERATOR'].includes(authState.user.role);
   const canConfigure = authState.user.role === 'ADMIN';
   return <div className="app command-center">
-    <Header units={displayUnits} selectedUnitId={selectedUnitId} onSelectUnit={setSelectedUnitId} socketConnected={socketConnected} mqttStatus={{ ...mqttStatus, connected: socketConnected && mqttStatus.connected }} cameraStatus={currentCameraStatus} currentUser={authState.user} onLogout={logout} />
+    <Header units={displayUnits} selectedUnitId={selectedUnitId} onSelectUnit={setSelectedUnitId} socketConnected={socketConnected} mqttStatus={{ ...mqttStatus, connected: socketConnected && mqttStatus.connected }} cameraStatus={currentCameraStatus} currentUser={authState.user} />
     {units.length === 0 && !motorStatus?.controllerId ? <div className="app__empty">Waiting for a unit or motor controller to come online. MQTT: {mqttStatus.connected ? "ONLINE" : "OFFLINE"}</div> : <>
       <div className="command-heading"><div><span className="eyebrow">OPERATIONS / {selectedUnitId}</span><h1>Rescue command center</h1></div><span className={`mode-banner ${isSimulation ? 'mode-banner--sim' : ''}`}>{mode} · OPERATOR ASSISTANCE</span></div>
       <main className="console-grid">

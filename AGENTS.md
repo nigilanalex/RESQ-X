@@ -17,7 +17,7 @@ node scripts/test-headlight.cjs
 node scripts/test-command-center.cjs
 ```
 
-Create the first local administrator before using the secured dashboard:
+The development command prints a random secure local dashboard link. Open that link instead of entering a username and password. Account administration remains available for deployments that disable local-link access:
 
 ```powershell
 cd backend

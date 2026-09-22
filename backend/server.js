@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const crypto = require("node:crypto");
 const { Server } = require("socket.io");
 
 const { setupMqtt } = require("./src/mqttClient");
@@ -15,8 +16,15 @@ const { createCaptureService } = require('./src/cameraCapture');
 
 const PORT = process.env.PORT || 4000;
 const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173").split(',').map(value => value.trim()).filter(Boolean);
+const LOCAL_DASHBOARD_ACCESS = process.env.RESQX_LOCAL_DASHBOARD_ACCESS === 'true';
+const localAccessToken = LOCAL_DASHBOARD_ACCESS ? crypto.randomBytes(32).toString('base64url') : null;
 if (process.env.NODE_ENV === 'production' && (!process.env.CORS_ORIGIN || CORS_ORIGINS.some(origin => !origin.startsWith('https://')))) throw new Error('Production requires explicit HTTPS CORS_ORIGIN values');
 const corsOptions = { origin(origin, callback) { if (!origin || CORS_ORIGINS.includes(origin)) return callback(null, true); const error = new Error('Origin not allowed'); error.statusCode = 403; callback(error); }, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'X-CSRF-Token'], maxAge: 600 };
+const isLoopback = address => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+const validLocalToken = supplied => {
+  const actual = Buffer.from(String(supplied || '')); const expected = Buffer.from(String(localAccessToken || ''));
+  return actual.length === expected.length && actual.length > 0 && crypto.timingSafeEqual(actual, expected);
+};
 
 const app = express();
 app.disable('x-powered-by');
@@ -52,6 +60,17 @@ const captureLimit = createRateLimiter({ windowMs: 60 * 1000, max: 10, key: req 
 const simulationLimit = createRateLimiter({ windowMs: 60 * 1000, max: 30, key: req => `${req.auth?.user.id || req.ip}:${req.params.unitId || ''}` });
 app.use('/api/auth', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.get('/api/auth/status', authLimit, (req, res) => res.set('Cache-Control', 'no-store').json({ configured: security.isConfigured() }));
+app.post('/api/auth/local', loginIpLimit, (req, res) => {
+  const keys = Object.keys(req.body || {});
+  if (!LOCAL_DASHBOARD_ACCESS || !isLoopback(req.socket.remoteAddress) || !CORS_ORIGINS.includes(req.get('Origin')) || keys.length !== 1 || keys[0] !== 'accessToken' || !validLocalToken(req.body.accessToken)) {
+    security.audit('LOCAL_SESSION_DENIED', { action: 'LOCAL_DASHBOARD', result: 'DENIED', ip: req.ip });
+    return res.status(401).json({ error: 'Local dashboard link is invalid' });
+  }
+  const session = security.createLocalSession();
+  security.setSessionCookie(res, session.token);
+  security.audit('LOCAL_SESSION_STARTED', { userId: session.user.id, role: session.user.role, action: 'LOCAL_DASHBOARD', result: 'SUCCESS', ip: req.ip });
+  res.set('Cache-Control', 'no-store').json({ user: session.user, csrfToken: session.csrf, expiresAt: session.expiresAt });
+});
 app.post('/api/auth/login', loginIpLimit, loginAccountLimit, (req, res) => {
   const { username, password } = req.body || {};
   if (Object.keys(req.body || {}).some(key => !['username', 'password'].includes(key)) || typeof username !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Invalid login request' });
@@ -114,4 +133,5 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`RESQ-X backend listening on http://localhost:${PORT}`);
   console.log(`Expecting units: ${mqttHandle.unitIds.join(", ")}`);
+  if (localAccessToken) console.log(`Open secure local dashboard: http://localhost:5173/?access=${localAccessToken}`);
 });

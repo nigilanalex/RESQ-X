@@ -1,6 +1,6 @@
 # RESQ-X security model
 
-RESQ-X uses local username/password accounts with salted Node.js `scrypt` password hashes. Browser sessions are opaque, server-side, HttpOnly cookies with `SameSite=Strict`, a finite lifetime, CSRF protection for state-changing requests, and logout invalidation. Cookies receive `Secure` only in production, which must use explicit HTTPS `CORS_ORIGIN` values.
+RESQ-X development uses a high-entropy local startup link instead of a visible username/password page. The link token is generated at backend startup, accepted only from the loopback computer and an allowlisted dashboard origin, and removed from the browser address immediately after exchange. Browser sessions remain opaque, server-side, HttpOnly cookies with `SameSite=Strict`, a finite lifetime, CSRF protection for state-changing requests, and invalidation. Cookies receive `Secure` only in production, which must use explicit HTTPS `CORS_ORIGIN` values.
 
 Roles are enforced by the backend:
 
@@ -10,7 +10,9 @@ Roles are enforced by the backend:
 | `OPERATOR` | Controls, emergency STOP, simulation controls, headlight, capture, evidence, alerts and telemetry |
 | `VIEWER` | Read-only telemetry, camera stream, alerts and evidence |
 
-Create the first account once, from the `backend` directory:
+The root `dev` and `dev:hardware` commands explicitly enable local-link access. The backend prints the only URL that can establish the local command-center session. A new random link is generated after every backend restart.
+
+Local username/password accounts remain available for deployments that disable `RESQX_LOCAL_DASHBOARD_ACCESS`. Create the first account once, from the `backend` directory:
 
 ```powershell
 npm.cmd run init-admin -- your-admin-name
@@ -33,6 +35,7 @@ Use `backend/.env` locally and only placeholders in `.env.example`.
 - `MQTT_USERNAME`, `MQTT_PASSWORD` — broker credentials, passed to MQTT only and never returned or logged.
 - `ESP32_CAM_BASE_URL` — fixed camera control endpoint. It must be HTTP(S), without URL credentials.
 - `RESQX_UNIT_IDS` — allowlisted unit IDs.
+- `RESQX_LOCAL_DASHBOARD_ACCESS` — enables the random, loopback-only startup link; keep disabled outside local operation.
 
 Use `NODE_ENV=production` only behind HTTPS. Production rejects missing/non-HTTPS CORS origins, enables Secure cookies and HSTS, and still requires a reverse proxy or deployment platform to terminate TLS.
 

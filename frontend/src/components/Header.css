@@ -7,4 +7,4 @@
 @media(max-width:1500px) { .hdr { gap:12px; padding:14px 20px; }.hdr__conn,.hdr__mode,.hdr__clock { padding:2px 10px; }.hdr__clock time { font-size:17px; }.hdr__units select { min-width:155px; } }
 @media(max-width:1150px) { .hdr__status { flex-basis:100%; justify-content:space-between; }.hdr__conn:first-child { border-left:0; padding-left:0; }.hdr__units { margin-left:auto; } }
 @media(max-width:560px) { .hdr { padding:12px; }.hdr__status { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }.hdr__conn,.hdr__mode,.hdr__clock { border:0; padding:0; }.hdr__clock { grid-column:1/-1; }.hdr__mark { font-size:23px; }.hdr__units { margin-left:0; }.hdr__tag { font-size:8px; } }
-.hdr__user { display:grid; gap:3px; color:#b9cee2; font:10px var(--font-mono); text-align:right; }.hdr__user small { color:#66c5df; }.hdr__user button { border:0; padding:0; color:#9dc2d8; background:transparent; cursor:pointer; font:9px var(--font-mono); text-decoration:underline; }
+.hdr__user { display:grid; gap:3px; color:#b9cee2; font:10px var(--font-mono); text-align:right; }.hdr__user small { color:#66c5df; }

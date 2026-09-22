@@ -80,10 +80,18 @@ function createSecurity({ dataDir = path.join(__dirname, '..', '.data'), auditDi
     sessions.set(crypto.createHash('sha256').update(token).digest('hex'), { userId: user.id, csrf, expiresAt: Date.now() + SESSION_TTL_MS });
     return { token, csrf, user: publicUser(user), expiresAt: Date.now() + SESSION_TTL_MS };
   }
+  function createLocalSession() {
+    const user = { id: 'local-dashboard', username: 'local-dashboard', role: ROLES.ADMIN, createdAt: 'runtime' };
+    const token = crypto.randomBytes(32).toString('base64url'); const csrf = crypto.randomBytes(24).toString('base64url');
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    sessions.set(crypto.createHash('sha256').update(token).digest('hex'), { userId: user.id, user, local: true, csrf, expiresAt });
+    return { token, csrf, user: publicUser(user), expiresAt };
+  }
   function getSession(token) {
     const key = crypto.createHash('sha256').update(String(token || '')).digest('hex'); const session = sessions.get(key);
     if (!session || session.expiresAt <= Date.now()) { sessions.delete(key); return null; }
-    const user = readUsers().find(item => item.id === session.userId); return user ? { ...session, key, user } : null;
+    const user = session.local ? session.user : readUsers().find(item => item.id === session.userId);
+    return user ? { ...session, key, user } : null;
   }
   function notifyInvalidated(userId) { for (const listener of invalidationListeners) { try { listener(userId); } catch { /* Session invalidation must continue. */ } } }
   function invalidate(token) { const key = crypto.createHash('sha256').update(String(token || '')).digest('hex'); const session = sessions.get(key); sessions.delete(key); if (session) notifyInvalidated(session.userId); }
@@ -106,6 +114,6 @@ function createSecurity({ dataDir = path.join(__dirname, '..', '.data'), auditDi
     if (readUsers().length || !username || !password) return false;
     try { createUser({ username, password, role: ROLES.ADMIN }); return true; } catch { return false; }
   }
-  return { ROLES, COOKIE_NAME, publicUser, audit, readUsers, createUser, changeRole, changePassword, userByUsername, authenticateCredentials, createSession, getSession, invalidate, authenticate, setSessionCookie, clearSessionCookie, bootstrapFromEnvironment, verifyPassword, onSessionInvalidated, isConfigured: () => readUsers().length > 0 };
+  return { ROLES, COOKIE_NAME, publicUser, audit, readUsers, createUser, changeRole, changePassword, userByUsername, authenticateCredentials, createSession, createLocalSession, getSession, invalidate, authenticate, setSessionCookie, clearSessionCookie, bootstrapFromEnvironment, verifyPassword, onSessionInvalidated, isConfigured: () => readUsers().length > 0 };
 }
 module.exports = { createSecurity, ROLES, parseCookies, publicUser };
